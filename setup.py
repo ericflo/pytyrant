@@ -2,7 +2,7 @@
 
 from distutils.core import setup
 
-VERSION = '1.1.10'
+VERSION = '1.1.10r1'
 DESCRIPTION = "Pure python client implementation of the Tokyo Tyrant protocol"
 LONG_DESCRIPTION = """
 pytyrant is a pure python client implementation of the binary Tokyo Tyrant

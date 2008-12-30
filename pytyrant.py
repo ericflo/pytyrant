@@ -27,7 +27,7 @@ import socket
 import struct
 import UserDict
 
-__version__ = '1.1.10'
+__version__ = '1.1.10r1'
 
 __all__ = [
     'Tyrant', 'TyrantError', 'PyTyrant',

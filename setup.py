@@ -23,6 +23,7 @@ CLASSIFIERS = filter(None, map(str.strip,
 Intended Audience :: Developers
 License :: OSI Approved :: MIT License
 Programming Language :: Python
+Topic :: Database :: Front-Ends
 Topic :: Software Development :: Libraries :: Python Modules
 """.splitlines()))
 

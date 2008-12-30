@@ -134,27 +134,33 @@ def _t3F(code, func, opts, key, value):
 
 def socksend(sock, lst):
     for chunk in lst:
-        sock.send(chunk)
+        sock.sendall(chunk)
+
+def sockrecv(sock, bytes):
+    d = ''
+    while len(d) < bytes:
+        d += sock.recv(min(8192, bytes - len(d)))
+    return d
 
 def socksuccess(sock):
-    fail_code = ord(sock.recv(1))
+    fail_code = ord(sockrecv(sock, 1))
     if fail_code:
         raise TyrantError(fail_code)
 
 def socklen(sock):
-    return struct.unpack('>I', sock.recv(4))[0]
+    return struct.unpack('>I', sockrecv(sock, 4))[0]
 
 def socklong(sock):
-    return struct.unpack('>Q', sock.recv(8))[0]
+    return struct.unpack('>Q', sockrecv(sock, 8))[0]
 
 def sockstr(sock):
-    return sock.recv(socklen(sock))
+    return sockrecv(sock, socklen(sock))
 
 def sockstrpair(sock):
     klen = socklen(sock)
     vlen = socklen(sock)
-    k = sock.recv(klen)
-    v = sock.recv(vlen)
+    k = sockrecv(sock, klen)
+    v = sockrecv(sock, vlen)
     return k, v
 
 class PyTyrant(UserDict.DictMixin):

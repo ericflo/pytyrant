@@ -1,4 +1,4 @@
-"""Pure python implementation of the binary Tokyo Tyrant 1.1.10 protocol
+"""Pure python implementation of the binary Tokyo Tyrant 1.1.11 protocol
 
 Tokyo Cabinet <http://tokyocabinet.sourceforge.net/> is a "super hyper ultra
 database manager" written and maintained by Mikio Hirabayashi and released
@@ -7,7 +7,7 @@ under the LGPL.
 Tokyo Tyrant is the de facto database server for Tokyo Cabinet written and
 maintained by the same author. It supports a REST HTTP protocol, memcached,
 and its own simple binary protocol. This library implements the full binary
-protocol for the Tokyo Tyrant 1.1.10 in pure Python as defined here::
+protocol for the Tokyo Tyrant 1.1.11 in pure Python as defined here::
 
     http://tokyocabinet.sourceforge.net/tyrantdoc/
 
@@ -27,7 +27,7 @@ import socket
 import struct
 import UserDict
 
-__version__ = '1.1.10r1'
+__version__ = '1.1.11'
 
 __all__ = [
     'Tyrant', 'TyrantError', 'PyTyrant',
@@ -247,11 +247,18 @@ class PyTyrant(UserDict.DictMixin):
         self.t.misc("outlist", opts, keys)
         
     def multi_get(self, keys, no_update_log=False):
-        # Note that the values will become de-interleaved if a key does not exist, so don't do that.
         opts = (no_update_log and RDBMONOULOG or 0)
         if not isinstance(keys, (list, tuple)):
             keys = list(keys)
-        return self.t.misc("getlist", opts, keys)
+        rval = self.t.misc("getlist", opts, keys)
+        if len(rval) <= len(keys):
+            # 1.1.10 protocol, may return invalid results
+            if len(rval) < len(keys):
+                raise KeyError("Missing a result, unusable response in 1.1.10")
+            return rval
+        # 1.1.11 protocol returns interleaved key, value list
+        d = dict((rval[i], rval[i + 1]) for i in xrange(0, len(rval), 2))
+        return map(d.get, keys)
         
     def multi_set(self, items, no_update_log=False):
         opts = (no_update_log and RDBMONOULOG or 0)
@@ -474,3 +481,10 @@ class Tyrant(object):
         opts is a bitflag that can be RDBMONOULOG to prevent writing to the update log
         """
         return list(self._misc(func, opts, args))
+
+def main():
+    import doctest
+    doctest.testmod()
+
+if __name__ == '__main__':
+    main()

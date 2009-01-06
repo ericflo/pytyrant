@@ -2,7 +2,7 @@
 
 from distutils.core import setup
 
-VERSION = '1.1.10r1'
+VERSION = '1.1.11'
 DESCRIPTION = "Pure python client implementation of the Tokyo Tyrant protocol"
 LONG_DESCRIPTION = """
 pytyrant is a pure python client implementation of the binary Tokyo Tyrant
@@ -13,7 +13,7 @@ released under the LGPL.
 Tokyo Tyrant is the de facto database server for Tokyo Cabinet written and
 maintained by the same author. It supports a REST HTTP protocol, memcached,
 and its own simple binary protocol. This library implements the full binary
-protocol for the Tokyo Tyrant 1.1.10 in pure Python as defined here::
+protocol for the Tokyo Tyrant 1.1.11 in pure Python as defined here::
     
         http://tokyocabinet.sourceforge.net/tyrantdoc/
 """

@@ -304,6 +304,7 @@ class Tyrant(object):
     def open(cls, host='127.0.0.1', port=DEFAULT_PORT):
         sock = socket.socket()
         sock.connect((host, port))
+        sock.setsockopt(socket.SOL_TCP, socket.TCP_NODELAY, 1)
         return cls(sock)
 
     def __init__(self, sock):

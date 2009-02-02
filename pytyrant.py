@@ -27,7 +27,7 @@ import socket
 import struct
 import UserDict
 
-__version__ = '1.1.11'
+__version__ = '1.1.12'
 
 __all__ = [
     'Tyrant', 'TyrantError', 'PyTyrant',
@@ -44,7 +44,7 @@ RDBMONOULOG = 1 << 0
 RDBXOLCKREC = 1 << 0
 RDBXOLCKGLB = 1 << 1
 
-class C:
+class C(object):
     """
     Tyrant Protocol constants
     """
@@ -163,7 +163,7 @@ def sockstrpair(sock):
     v = sockrecv(sock, vlen)
     return k, v
 
-class PyTyrant(UserDict.DictMixin):
+class PyTyrant(object, UserDict.DictMixin):
     """
     Dict-like proxy for a Tyrant instance
     """
@@ -174,6 +174,11 @@ class PyTyrant(UserDict.DictMixin):
     def __init__(self, t):
         self.t = t
     
+    def __repr__(self):
+        # The __repr__ for UserDict.DictMixin isn't desirable
+        # for a large KV store :)
+        return object.__repr__(self)
+
     def has_key(self, key):
         return key in self
 
@@ -298,6 +303,7 @@ class PyTyrant(UserDict.DictMixin):
     
     def close(self):
         self.t.close()
+
 
 class Tyrant(object):
     @classmethod
@@ -478,6 +484,8 @@ class Tyrant(object):
         "putlist" is to store records. It receives keys and values one after the other, and returns an empty list.
         "outlist" is to remove records. It receives keys, and returns an empty list.
         "getlist" is to retrieve records. It receives keys, and returns values.
+
+        Table database supports "setindex", "search", "genuid".
         
         opts is a bitflag that can be RDBMONOULOG to prevent writing to the update log
         """

@@ -493,8 +493,10 @@ class Tyrant(object):
     def _misc(self, func, opts, args):
         # tcrdbmisc opts are RDBMONOULOG
         socksend(self.sock, _t1FN(C.misc, func, opts, args))
-        socksuccess(self.sock)
-        numrecs = socklen(self.sock)
+        try:
+            socksuccess(self.sock)
+        finally:
+            numrecs = socklen(self.sock)
         for i in xrange(numrecs):
             yield sockstr(self.sock)
 

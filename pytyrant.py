@@ -23,6 +23,7 @@ for the raw Tyrant protocol::
     >>> del t['__test_key__']
 
 """
+import math
 import socket
 import struct
 import UserDict
@@ -144,6 +145,13 @@ def _t3F(code, func, opts, key, value):
     ]
 
 
+def _tDouble(code, key, integ, fract):
+    return [
+        struct.pack('>BBIQQ', MAGIC, code, integ, fract),
+        key,
+    ]
+
+
 def socksend(sock, lst):
     for chunk in lst:
         sock.sendall(chunk)
@@ -172,6 +180,11 @@ def socklong(sock):
 
 def sockstr(sock):
     return sockrecv(sock, socklen(sock))
+
+
+def sockdouble(sock):
+    intpart, fracpart = struct.unpack('>QQ', sockrecv(sock, 16))
+    return intpart + (fracpart * 1e-12)
 
 
 def sockstrpair(sock):
@@ -428,6 +441,18 @@ class Tyrant(object):
         """Get up to the first maxkeys starting with prefix
         """
         return list(self._fwmkeys(prefix, maxkeys))
+
+    def addint(self, key, num):
+        socksend(self.sock, _t1M(C.addint, key, num))
+        socksuccess(self.sock)
+        return socklen(self.sock)
+
+    def adddouble(self, key, num):
+        fracpart, intpart = math.modf(num)
+        fracpart, intpart = int(fracpart * 1e12), int(intpart)
+        socksend(self.sock, _tDouble(C.adddouble, key, fracpart, intpart))
+        socksuccess(self.sock)
+        return sockdouble(self.sock)
 
     def ext(self, func, opts, key, value):
         # tcrdbext opts are RDBXOLCKREC, RDBXOLCKGLB

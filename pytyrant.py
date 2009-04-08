@@ -147,7 +147,7 @@ def _t3F(code, func, opts, key, value):
 
 def _tDouble(code, key, integ, fract):
     return [
-        struct.pack('>BBIQQ', MAGIC, code, integ, fract),
+        struct.pack('>BBIQQ', MAGIC, code, len(key), integ, fract),
         key,
     ]
 

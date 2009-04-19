@@ -153,8 +153,7 @@ def _tDouble(code, key, integ, fract):
 
 
 def socksend(sock, lst):
-    for chunk in lst:
-        sock.sendall(chunk)
+    sock.sendall(''.join(lst))
 
 
 def sockrecv(sock, bytes):

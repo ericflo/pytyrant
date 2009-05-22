@@ -423,8 +423,19 @@ class Query(object):
             field = field[1:]
         else:
             direction = RDBQONUMASC
-        condition = '\x00'.join(["setorder", field, direction])
+        condition = '\x00'.join(["setorder", field, str(direction)])
         self.conditions.append(condition)
+        return self
+    
+    def order_by_str(self, field):
+        if field.startswith('-'):
+            direction = RDBQOSTRDESC
+            field = field[1:]
+        else:
+            direction = RDBQOSTRASC
+        condition = '\x00'.join(["setorder", field, str(direction)])
+        self.conditions.append(condition)
+        return self
 
 
 class PyTableTyrant(PyTyrant):

@@ -351,9 +351,10 @@ class PyTableTyrant(PyTyrant):
     """
     Dict-like proxy for a Table-based Tyrant instance
     """
-    def setdefault(self, key, value):
+    def setdefault(self, key, value, no_update_log=False):
+        opts = (no_update_log and RDBMONOULOG or 0)
         try:
-            self.t.putkeep(key, dict_to_list(value))
+            self.t.misc('putkeep', opts, [key] + dict_to_list(value))
         except TyrantError:
             return self[key]
         return value
@@ -366,19 +367,6 @@ class PyTableTyrant(PyTyrant):
             return list_to_dict(self.t.misc('get', 0, (key,)))
         except TyrantError:
             raise KeyError(key)
-
-    def update(self, other=None, **kwargs):
-        # Make progressively weaker assumptions about "other"
-        if other is None:
-            pass
-        elif hasattr(other, 'iteritems'):
-            self.multi_set(other.iteritems())
-        elif hasattr(other, 'keys'):
-            self.multi_set([(k, other[k]) for k in other.keys()])
-        else:
-            self.multi_set(other)
-        if kwargs:
-            self.update(kwargs)
 
     def multi_get(self, keys, no_update_log=False):
         opts = (no_update_log and RDBMONOULOG or 0)

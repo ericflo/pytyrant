@@ -48,6 +48,8 @@ RDBMONOULOG = 1 << 0
 RDBXOLCKREC = 1 << 0
 RDBXOLCKGLB = 1 << 1
 
+RDBQOSTRASC, RDBQOSTRDESC, RDBQONUMASC, RDBQONUMDESC = range(4)
+
 
 class C(object):
     """
@@ -77,6 +79,25 @@ class C(object):
     size = 0x81
     stat = 0x88
     misc = 0x90
+
+
+QUERY_OPERATIONS = {
+    'streq': '0',     # string is equal to
+    'strinc': '1',    # string is included in
+    'strbw': '2',     # string begins with
+    'strew': '3',     # string ends with
+    'strand': '4',    # string includes all tokens in
+    'stror': '5',     # string includes at least one token in
+    'stroreq': '6',   # string is equal to at least one token in
+    'strrx': '7',     # string matches regular expression of
+    'numeq': '8',     # number is equal to
+    'numgt': '9',     # number is greater than
+    'numge': '10',    # number is greater than or equal to
+    'numlt': '11',    # number is less than
+    'numle': '12',    # number is less than or equal to
+    'numbt': '13',    # number is between two tokens of
+    'numoreq': '14',  # number is equal to at least one token in
+}
 
 
 def _t0(code):
@@ -347,6 +368,65 @@ class PyTyrant(object, UserDict.DictMixin):
         self.t.close()
 
 
+class Query(object):
+    def __init__(self, ptt):
+        self.ptt = ptt
+        self.conditions = []
+    
+    def __iter__(self):
+        return iter(self.ptt.t.misc('search', 0, self.conditions))
+    
+    def __len__(self):
+        return len(self.ptt.t.misc('search', 0, self.conditions))
+    
+    def __getitem__(self, k):
+        if not isinstance(k, (slice, int, long)):
+            raise TypeError
+        assert ((not isinstance(k, slice) and (k >= 0))
+            or (isinstance(k, slice) and (k.start is None or k.start >= 0)
+                and (k.stop is None or k.stop >= 0))), \
+            "Negative indexing is not supported."
+        
+        if isinstance(k, slice):
+            if k.start is not None and k.stop is not None:
+                limit = k.stop - k.start
+            else:
+                limit = -1
+            condition = '\x00'.join(('setlimit', str(limit), str(k.start or 0)))
+            resp = self.ptt.t.misc('search', 0, self.conditions + [condition])
+            return k.step and list(resp)[::k.step] or resp
+        
+        condition = '\x00'.join(('setlimit', str(1), str(k)))
+        resp = self.ptt.t.misc('search', 0, self.conditions + [condition])
+        if not resp:
+            return None
+        else:
+            return resp[0] 
+    
+    def filter(self, **query):
+        for key, value in query.iteritems():
+            if '__' not in key:
+                raise ValueError("Filter arguments should be of the form "
+                    "`field__operation`")
+            field, operation = key.split('__')
+            try:
+                opcode = QUERY_OPERATIONS[operation]
+            except KeyError:
+                raise ValueError('%s is not a valid query operation' % (operation,))
+            condition = '\x00'.join(["addcond", field, opcode, value])
+            self.conditions.append(condition)
+        return self
+    
+    def order_by_num(self, field):
+        if field.startswith('-'):
+            direction = RDBQONUMDESC
+            field = field[1:]
+        else:
+            direction = RDBQONUMASC
+        condition = '\x00'.join(["setorder", field, direction])
+        self.conditions.append(condition)
+
+
 class PyTableTyrant(PyTyrant):
     """
     Dict-like proxy for a Table-based Tyrant instance
@@ -395,6 +475,10 @@ class PyTableTyrant(PyTyrant):
             self.t.misc('putcat', opts, ([key] + dict_to_list(value)))
         else:
             raise ValueError('Cannot concat with a width on a table database')
+    
+    def _search(self):
+        return Query(self)
+    search = property(_search)
 
 
 class Tyrant(object):

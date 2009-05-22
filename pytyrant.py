@@ -388,8 +388,8 @@ class Query(object):
             "Negative indexing is not supported."
         
         if isinstance(k, slice):
-            if k.start is not None and k.stop is not None:
-                limit = k.stop - k.start
+            if k.stop is not None:
+                limit = k.stop - (k.start or 0)
             else:
                 limit = -1
             condition = '\x00'.join(('setlimit', str(limit), str(k.start or 0)))

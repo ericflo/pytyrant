@@ -23,6 +23,7 @@ for the raw Tyrant protocol::
     >>> del t['__test_key__']
 
 """
+import itertools
 import math
 import socket
 import struct
@@ -194,6 +195,16 @@ def sockstrpair(sock):
     return k, v
 
 
+def dict_to_list(dct):
+    return list(itertools.chain(*dct.iteritems()))
+
+
+def list_to_dict(lst):
+    if not isinstance(lst, (list, tuple)):
+        lst = list(lst)
+    return dict((lst[i], lst[i + 1]) for i in xrange(0, len(lst), 2))
+
+
 class PyTyrant(object, UserDict.DictMixin):
     """
     Dict-like proxy for a Tyrant instance
@@ -293,7 +304,7 @@ class PyTyrant(object, UserDict.DictMixin):
                 raise KeyError("Missing a result, unusable response in 1.1.10")
             return rval
         # 1.1.11 protocol returns interleaved key, value list
-        d = dict((rval[i], rval[i + 1]) for i in xrange(0, len(rval), 2))
+        d = list_to_dict(rval)
         return map(d.get, keys)
 
     def multi_set(self, items, no_update_log=False):
@@ -334,6 +345,68 @@ class PyTyrant(object, UserDict.DictMixin):
 
     def close(self):
         self.t.close()
+
+
+class PyTableTyrant(PyTyrant):
+    """
+    Dict-like proxy for a Table-based Tyrant instance
+    """
+    def setdefault(self, key, value):
+        try:
+            self.t.putkeep(key, dict_to_list(value))
+        except TyrantError:
+            return self[key]
+        return value
+
+    def __setitem__(self, key, value):
+        self.t.misc('put', 0, [key] + dict_to_list(value))
+
+    def __getitem__(self, key):
+        try:
+            return list_to_dict(self.t.misc('get', 0, (key,)))
+        except TyrantError:
+            raise KeyError(key)
+
+    def update(self, other=None, **kwargs):
+        # Make progressively weaker assumptions about "other"
+        if other is None:
+            pass
+        elif hasattr(other, 'iteritems'):
+            self.multi_set(other.iteritems())
+        elif hasattr(other, 'keys'):
+            self.multi_set([(k, other[k]) for k in other.keys()])
+        else:
+            self.multi_set(other)
+        if kwargs:
+            self.update(kwargs)
+
+    def multi_get(self, keys, no_update_log=False):
+        opts = (no_update_log and RDBMONOULOG or 0)
+        if not isinstance(keys, (list, tuple)):
+            keys = list(keys)
+        rval = self.t.misc("getlist", opts, keys)
+        if len(rval) <= len(keys):
+            # 1.1.10 protocol, may return invalid results
+            if len(rval) < len(keys):
+                raise KeyError("Missing a result, unusable response in 1.1.10")
+            return list_to_dict(rval.split('\x00'))
+        # 1.1.11 protocol returns interleaved key, value list
+        d = dict((rval[i], rval[i + 1]) for i in xrange(0, len(rval), 2))
+        return [list_to_dict(d.get(i).split('\x00')) for i in keys]
+
+    def multi_set(self, items, no_update_log=False):
+        opts = (no_update_log and RDBMONOULOG or 0)
+        lst = []
+        for k, v in items:
+            lst.extend((k, '\x00'.join(dict_to_list(v))))
+        self.t.misc("putlist", opts, lst)
+
+    def concat(self, key, value, width=None, no_update_log=False):
+        opts = (no_update_log and RDBMONOULOG or 0)
+        if width is None:
+            self.t.misc('putcat', opts, ([key] + dict_to_list(value)))
+        else:
+            raise ValueError('Cannot concat with a width on a table database')
 
 
 class Tyrant(object):

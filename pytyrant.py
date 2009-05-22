@@ -372,12 +372,16 @@ class Query(object):
     def __init__(self, ptt):
         self.ptt = ptt
         self.conditions = []
+        self._result_cache = None
     
     def __iter__(self):
-        return iter(self.ptt.t.misc('search', 0, self.conditions))
+        return iter(self._get_results())
     
     def __len__(self):
-        return len(self.ptt.t.misc('search', 0, self.conditions))
+        return len(self._get_results())
+
+    def __repr__(self):
+        return repr(list(self))
     
     def __getitem__(self, k):
         if not isinstance(k, (slice, int, long)):
@@ -386,6 +390,15 @@ class Query(object):
             or (isinstance(k, slice) and (k.start is None or k.start >= 0)
                 and (k.stop is None or k.stop >= 0))), \
             "Negative indexing is not supported."
+
+        if self._result_cache:
+            try:
+                return self._result_cache[k]
+            except IndexError:
+                # Same behavior as querying the DB if the key doesn't exist
+                if not isinstance(k, slice):
+                    return None
+                raise
         
         if isinstance(k, slice):
             if k.stop is not None:
@@ -395,7 +408,7 @@ class Query(object):
             condition = '\x00'.join(('setlimit', str(limit), str(k.start or 0)))
             resp = self.ptt.t.misc('search', 0, self.conditions + [condition])
             return k.step and list(resp)[::k.step] or resp
-        
+
         condition = '\x00'.join(('setlimit', str(1), str(k)))
         resp = self.ptt.t.misc('search', 0, self.conditions + [condition])
         if not resp:
@@ -404,38 +417,61 @@ class Query(object):
             return resp[0] 
     
     def filter(self, **query):
+        q = self._clone()
         for key, value in query.iteritems():
-            if '__' not in key:
+            parts = key.split('__')
+            if len(parts) != 2:
                 raise ValueError("Filter arguments should be of the form "
                     "`field__operation`")
-            field, operation = key.split('__')
+            field, operation = parts
             try:
                 opcode = QUERY_OPERATIONS[operation]
             except KeyError:
                 raise ValueError('%s is not a valid query operation' % (operation,))
+            if not isinstance(value, basestring) and hasattr(value, '__iter__'):
+                # Value is a list. Make it a comma separated string.
+                value = ','.join(value)
             condition = '\x00'.join(["addcond", field, opcode, value])
-            self.conditions.append(condition)
-        return self
+            q.conditions.append(condition)
+        return q
+
+    def items(self):
+        return self.ptt.multi_get(list(self))
     
     def order_by_num(self, field):
+        q = self._clone()
         if field.startswith('-'):
             direction = RDBQONUMDESC
             field = field[1:]
         else:
             direction = RDBQONUMASC
         condition = '\x00'.join(["setorder", field, str(direction)])
-        self.conditions.append(condition)
-        return self
+        q.conditions.append(condition)
+        return q
     
     def order_by_str(self, field):
+        q = self._clone()
         if field.startswith('-'):
             direction = RDBQOSTRDESC
             field = field[1:]
         else:
             direction = RDBQOSTRASC
         condition = '\x00'.join(["setorder", field, str(direction)])
-        self.conditions.append(condition)
-        return self
+        q.conditions.append(condition)
+        return q
+
+    def _clone(self, klass=None, **kwargs):
+        if klass is None:
+            klass = self.__class__
+        q = klass(self.ptt)
+        q.conditions = self.conditions[:]
+        q.__dict__.update(kwargs)
+        return q
+    
+    def _get_results(self):
+        if self._result_cache is None:
+            self._result_cache = self.ptt.t.misc('search', 0, self.conditions)
+        return self._result_cache
 
 
 class PyTableTyrant(PyTyrant):

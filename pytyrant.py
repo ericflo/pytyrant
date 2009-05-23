@@ -71,9 +71,9 @@ class C(object):
     adddouble = 0x61
     ext = 0x68
     sync = 0x70
-    vanish = 0x71
-    copy = 0x72
-    restore = 0x73
+    vanish = 0x72
+    copy = 0x73
+    restore = 0x74
     setmst = 0x78
     rnum = 0x80
     size = 0x81
@@ -293,6 +293,16 @@ class PyTyrant(object, UserDict.DictMixin):
         return self.t.rnum()
 
     def clear(self):
+        """
+        >>> t = PyTyrant.open('127.0.0.1', 1978)
+        >>> t['delete_me'] = 'not to be seen'
+        >>> t['delete_me_2'] = 'not to be seen'
+        >>> 'delete_me' in t and 'delete_me_2' in t
+        True
+        >>> t.clear()
+        >>> 'delete_me' in t or 'delete_me_2' in t
+        False
+        """
         self.t.vanish()
 
     def update(self, other=None, **kwargs):
